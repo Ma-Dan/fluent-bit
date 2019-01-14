@@ -42,6 +42,7 @@ RUN install bin/fluent-bit /fluent-bit/bin/
 
 # Configuration files
 COPY conf/fluent-bit.conf \
+     conf/fluent-bit-custom.conf \
      conf/parsers.conf \
      conf/parsers_java.conf \
      conf/parsers_extra.conf \
@@ -59,9 +60,11 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get autoclean
 COPY --from=builder /fluent-bit /fluent-bit
+COPY ./fluentbitdaemon /fluent-bit/bin/fluentbitdaemon
 
 #
 EXPOSE 2020
+EXPOSE 24444
 
 # Entry point
-CMD ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf"]
+CMD ["/fluent-bit/bin/fluentbitdaemon"]
