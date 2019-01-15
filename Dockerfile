@@ -1,4 +1,4 @@
-FROM gcr.io/google-containers/debian-base-amd64:0.3.1 as builder
+FROM gcr.io/google-containers/debian-base-amd64:0.3.1 as builderc
 
 # Fluent Bit version
 ENV FLB_MAJOR 0
@@ -50,6 +50,16 @@ COPY conf/fluent-bit.conf \
      conf/parsers_cinder.conf \
      /fluent-bit/etc/
 
+
+FROM golang:1.10.1-alpine3.7 as buildergo
+WORKDIR /go/src
+COPY fluentbitdaemon.go .
+
+RUN apk update && apk add git
+RUN go get github.com/golang/glog
+RUN CGO_ENABLED=0 go build -o fluentbitdaemon ./fluentbitdaemon.go
+
+
 FROM gcr.io/google-containers/debian-base-amd64:0.3.1
 MAINTAINER Eduardo Silva <eduardo@treasure-data.com>
 LABEL Description="Fluent Bit docker image" Vendor="Fluent Organization" Version="1.1"
@@ -59,8 +69,8 @@ RUN apt-get update \
     && apt-get install --no-install-recommends ca-certificates libssl1.0.2 libsasl2-2 -y \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get autoclean
-COPY --from=builder /fluent-bit /fluent-bit
-COPY ./fluentbitdaemon /fluent-bit/bin/fluentbitdaemon
+COPY --from=builderc /fluent-bit /fluent-bit
+COPY --from=buildergo /go/src/fluentbitdaemon /fluent-bit/bin/fluentbitdaemon
 
 #
 EXPOSE 2020
