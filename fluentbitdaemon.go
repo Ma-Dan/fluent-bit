@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/golang/glog"
@@ -23,11 +24,14 @@ func Exists(path string) bool {
 	return true
 }
 
+var processLock sync.Mutex
 var fluentPID int
 var running bool
 
 func fluentBitRunner() {
 	for running {
+		//Need to lock staring process, ensure killFluentBit with correct fluentPID to avoid kill message missing.
+		processLock.Lock()
 		var cmd *exec.Cmd
 		if Exists("/fluent-bit/app-config/fluent-bit.conf") {
 			cmd = exec.Command("/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit-custom.conf")
@@ -40,16 +44,20 @@ func fluentBitRunner() {
 
 		cmd.Start()
 		fluentPID = cmd.Process.Pid
+		processLock.Unlock()
+
+		//Lock is not required during exiting, kill one more time will not affect next time start with new parameters.
 		cmd.Wait()
 		fluentPID = -1
 	}
 }
 
 func killFluentBit() {
+	processLock.Lock()
 	if fluentPID > 0 {
 		syscall.Kill(-fluentPID, syscall.SIGHUP)
-		fluentPID = -1
 	}
+	processLock.Unlock()
 }
 
 var ch = make(chan int, 10)
