@@ -1,12 +1,15 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 
@@ -33,11 +36,36 @@ func fluentBitRunner() {
 		//Need to lock staring process, ensure killFluentBit with correct fluentPID to avoid kill message missing.
 		processLock.Lock()
 		var cmd *exec.Cmd
-		if Exists("/fluent-bit/app-config/fluent-bit.conf") {
-			cmd = exec.Command("/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit-custom.conf")
-		} else {
-			cmd = exec.Command("/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf")
+		var Enabled bool
+		Enabled = true
+
+		type Settings struct {
+			Enable string `json:"Enable"`
 		}
+
+		settingsFile := "/fluent-bit/app-config/settings.json"
+
+		if Exists(settingsFile) {
+			var settings Settings
+			jsonfile, _ := ioutil.ReadFile(settingsFile)
+			err := json.Unmarshal(jsonfile, &settings)
+			if err == nil {
+				if strings.ToLower(settings.Enable) != "true" {
+					Enabled = false
+				}
+			}
+		}
+
+		if Enabled {
+			if Exists("/fluent-bit/app-config/fluent-bit.conf") {
+				cmd = exec.Command("/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit-custom.conf")
+			} else {
+				cmd = exec.Command("/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.conf")
+			}
+		} else {
+			cmd = exec.Command("/fluent-bit/bin/fluentbitdisable")
+		}
+
 		cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

@@ -55,10 +55,12 @@ COPY conf/fluent-bit.conf \
 FROM golang:1.10.1-alpine3.7 as buildergo
 WORKDIR /go/src
 COPY fluentbitdaemon.go .
+COPY fluentbitdisable.go .
 
 RUN apk update && apk add git
 RUN go get github.com/golang/glog
 RUN CGO_ENABLED=0 go build -o fluentbitdaemon ./fluentbitdaemon.go
+RUN CGO_ENABLED=0 go build -o fluentbitdisable ./fluentbitdisable.go
 
 FROM gcr.io/distroless/cc
 MAINTAINER Eduardo Silva <eduardo@treasure-data.com>
@@ -81,6 +83,7 @@ COPY --from=builderc /lib/x86_64-linux-gnu/libgpg-error.so* /lib/x86_64-linux-gn
 COPY --from=builderc /fluent-bit /fluent-bit
 
 COPY --from=buildergo /go/src/fluentbitdaemon /fluent-bit/bin/fluentbitdaemon
+COPY --from=buildergo /go/src/fluentbitdisable /fluent-bit/bin/fluentbitdisable
 
 #
 EXPOSE 2020
